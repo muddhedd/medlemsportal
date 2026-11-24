@@ -1,0 +1,9 @@
+# Real configuration files contain passwords – never commit them
+_core/config/*-config.php
+!_core/config/*.example.php
+
+# Local leftovers
+*.log
+*.bak
+*~
+.DS_Store
