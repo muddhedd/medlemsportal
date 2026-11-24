@@ -1,0 +1,60 @@
+# Medlemsportal — Apache hardening
+
+# No directory listings, no MultiViews content negotiation
+Options -Indexes -MultiViews
+
+DirectoryIndex index.php
+
+# Hide Apache version/details
+ServerSignature Off
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet, noimageindex, noai, noimageai"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
+  Header unset ETag
+  Header unset Server
+</IfModule>
+FileETag None
+
+# Deny hidden/system files (.htaccess, .env, .git, etc.)
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+
+# Deny config, backups, logs, SQL dumps, notes and editor leftovers
+<FilesMatch "(^config\.php$|-config\.php$|\.(sql|bak|old|orig|log|ini|inc|md|txt~|swp)$|~$|^LICENSE$)">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # In a sub-folder, e.g. /portal/: change the next line to  RewriteBase /portal/
+  #RewriteBase /
+
+  # Force HTTPS (the second line prevents a loop if the host uses a proxy)
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Only GET, HEAD and POST are ever needed
+  RewriteCond %{REQUEST_METHOD} !^(GET|HEAD|POST)$
+  RewriteRule ^ - [F]
+
+  # Known AI crawlers and scrapers get no access at all
+  RewriteCond %{HTTP_USER_AGENT} (GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|Claude-User|Claude-SearchBot|anthropic-ai|CCBot|Google-Extended|GoogleOther|PerplexityBot|Perplexity-User|Bytespider|Amazonbot|Applebot-Extended|meta-externalagent|meta-externalfetcher|FacebookBot|cohere-ai|Diffbot|ImagesiftBot|YouBot|Timpibot|omgili|DuckAssistBot|MistralAI-User|AI2Bot|PetalBot) [NC]
+  RewriteRule ^ - [F]
+
+  # Only these PHP entry points may run from the web
+  RewriteCond %{REQUEST_FILENAME} \.php$
+  RewriteRule !^(index\.php|group-admin/index\.php|group-admin/setup\.php|group-app/index\.php)$ - [F]
+
+  # Member pages: /association/ (or /country/city/group/) -> one shared program
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^[a-z0-9-]+(/[a-z0-9-]+){0,2}/?$ group-app/index.php [L,QSA]
+</IfModule>
